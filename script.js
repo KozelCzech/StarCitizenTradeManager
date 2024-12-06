@@ -49,20 +49,21 @@ function initializeDropdowns() {
 }
 
 // Edit ship's cargo size
-function editShipCargo() {
-    const shipSelect = document.getElementById('shipSelect');
-    const selectedShip = ships.find(ship => ship.name === shipSelect.value);
-    
-    if (!selectedShip) {
-        alert('Please select a ship first');
-        return;
-    }
+function editShipCargo(shipName) {
+    const ship = ships.find(s => s.name === shipName);
+    if (!ship) return;
 
-    const newCargoSize = parseInt(prompt(`Enter new cargo size for ${selectedShip.name} (SCU):`, selectedShip.cargoSize));
+    const newCargoSize = parseInt(prompt(`Enter new cargo size for ${ship.name} (SCU):`, ship.cargoSize));
     if (!isNaN(newCargoSize) && newCargoSize > 0) {
-        selectedShip.cargoSize = newCargoSize;
+        ship.cargoSize = newCargoSize;
         localStorage.setItem('ships', JSON.stringify(ships));
-        document.getElementById('cargoSize').value = newCargoSize;
+        
+        // Refresh the modal and update cargo size if the ship is currently selected
+        showManageModal('ships');
+        const currentShip = document.getElementById('shipSelect').value;
+        if (currentShip === shipName) {
+            document.getElementById('cargoSize').value = newCargoSize;
+        }
     }
 }
 
@@ -220,6 +221,7 @@ document.getElementById('tradeForm').addEventListener('submit', function(e) {
         alert('Please add at least one cargo item');
         return;
     }
+    
 
     const totalProfit = cargoItems.reduce((sum, item) => 
         sum + (item.sellPrice - item.buyPrice), 0);
@@ -289,8 +291,11 @@ function showManageModal(type) {
                 const item = document.createElement('div');
                 item.className = 'list-group-item d-flex justify-content-between align-items-center';
                 item.innerHTML = `
-                    ${ship.name} (${ship.cargoSize} SCU)
-                    <span class="delete-item" onclick="deleteItem('ships', '${ship.name}')">✕</span>
+                    <span>${ship.name} (${ship.cargoSize} SCU)</span>
+                    <div class="action-buttons">
+                        <span class="edit-item" onclick="editShipCargo('${ship.name}')">✎</span>
+                        <span class="delete-item" onclick="deleteItem('ships', '${ship.name}')">✕</span>
+                    </div>
                 `;
                 list.appendChild(item);
             });
@@ -365,6 +370,105 @@ function deleteItem(type, name) {
     // Refresh the modal and dropdowns
     showManageModal(type);
     initializeDropdowns();
+}
+
+// Export trade data to Google Sheets
+function exportToSheets() {
+    // Convert trade data to CSV format
+    let csv = 'Ship,Cargo Types,Buy Location,Sell Location,Total Profit (aUEC)\n';
+    
+    tradeData.forEach(record => {
+        const cargoDetails = record.cargoItems.map(item => 
+            `${item.amount} SCU ${item.cargoType} (Buy: ${item.buyPrice} aUEC, Sell: ${item.sellPrice} aUEC)`
+        ).join('; ');
+        
+        csv += `"${record.ship}","${cargoDetails}","${record.buyLocation}","${record.sellLocation}","${record.totalProfit}"\n`;
+    });
+
+    // Create a Blob containing the CSV data
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    
+    // Create a link to download the CSV
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'star_citizen_trades.csv');
+    document.body.appendChild(link);
+    
+    // Click the link to download the file
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    // Provide instructions for Google Sheets import
+    alert('CSV file has been downloaded. To import into Google Sheets:\n\n' +
+          '1. Open Google Sheets\n' +
+          '2. Click File > Import\n' +
+          '3. Select the downloaded CSV file\n' +
+          '4. Choose "Replace current sheet" or "Create new sheet"\n' +
+          '5. Click Import data');
+}
+
+// Save data to JSON file
+function saveToJson() {
+    // Collect all data from localStorage
+    const data = {
+        trades: JSON.parse(localStorage.getItem('tradeData') || '[]'),
+        ships: JSON.parse(localStorage.getItem('ships') || '[]'),
+        cargoTypes: JSON.parse(localStorage.getItem('cargoTypes') || '[]'),
+        locations: JSON.parse(localStorage.getItem('locations') || '[]')
+    };
+
+    // Create a Blob with the JSON data
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    // Create a temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `star_citizen_trade_data_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+// Load data from JSON file
+function loadFromJson(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // Validate data structure
+            if (!data.trades || !data.ships || !data.cargoTypes || !data.locations) {
+                throw new Error('Invalid data format');
+            }
+
+            // Store the data
+            localStorage.setItem('tradeData', JSON.stringify(data.trades));
+            localStorage.setItem('ships', JSON.stringify(data.ships));
+            localStorage.setItem('cargoTypes', JSON.stringify(data.cargoTypes));
+            localStorage.setItem('locations', JSON.stringify(data.locations));
+
+            // Refresh the UI
+            updateTradeHistory();
+            initializeDropdowns();
+
+            alert('Data loaded successfully!');
+        } catch (error) {
+            alert('Error loading data: ' + error.message);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset the input
+    input.value = '';
 }
 
 // Initialize the page
