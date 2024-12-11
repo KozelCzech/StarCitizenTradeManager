@@ -12,6 +12,20 @@ let locations = JSON.parse(localStorage.getItem('locations')) || [
     'CRU L1', 'HUR L1', 'ARC L1', 'MIC L1'
 ];
 
+// Constants for SCU calculations
+
+function calculateSCUPrice(fullPrice, amount) {
+    // Calculate price per SCU by dividing total price by amount of SCUs
+    return amount > 0 ? fullPrice / amount : 0;
+}
+
+function calculateProfit(buyPrice, sellPrice, amount) {
+    // Calculate profit based on price per SCU
+    const buyPricePerSCU = calculateSCUPrice(buyPrice, amount);
+    const sellPricePerSCU = calculateSCUPrice(sellPrice, amount);
+    return (sellPricePerSCU - buyPricePerSCU) * amount;
+}
+
 // Filter dropdown options
 function filterDropdown(filterInput, selectElement, options) {
     const filterText = filterInput.value.toLowerCase();
@@ -46,6 +60,20 @@ function initializeDropdowns() {
 
     // Update cargo size for initially selected ship
     updateCargoSize();
+
+    // Add to existing function
+    const priceAnalysisCargoFilter = document.getElementById('priceAnalysisCargoFilter');
+    const priceAnalysisLocationFilter = document.getElementById('priceAnalysisLocationFilter');
+    
+    cargoTypes.forEach(type => {
+        priceAnalysisCargoFilter.add(new Option(type, type));
+    });
+    
+    locations.forEach(location => {
+        priceAnalysisLocationFilter.add(new Option(location, location));
+    });
+    
+    updatePriceAnalysis();
 }
 
 // Edit ship's cargo size
@@ -213,66 +241,368 @@ function getCargoItems() {
 }
 
 // Add trade record
-document.getElementById('tradeForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const cargoItems = getCargoItems();
-    if (cargoItems.length === 0) {
-        alert('Please add at least one cargo item');
-        return;
-    }
+document.getElementById('tradeForm').addEventListener('submit', function(event) {
+    event.preventDefault();
     
+    const cargoItems = [];
+    document.querySelectorAll('.cargo-item').forEach(item => {
+        cargoItems.push({
+            cargoType: item.querySelector('[name="cargoType"]').value,
+            amount: parseFloat(item.querySelector('[name="amount"]').value) || 0,
+            buyPrice: parseFloat(item.querySelector('[name="buyPrice"]').value) || 0,
+            sellPrice: parseFloat(item.querySelector('[name="sellPrice"]').value) || 0
+        });
+    });
 
-    const totalProfit = cargoItems.reduce((sum, item) => 
-        sum + (item.sellPrice - item.buyPrice), 0);
-
-    const record = {
-        id: Date.now(),
+    const tradeData = {
         ship: document.getElementById('shipSelect').value,
-        cargoSize: document.getElementById('cargoSize').value,
         buyLocation: document.getElementById('buyLocation').value,
         sellLocation: document.getElementById('sellLocation').value,
         cargoItems: cargoItems,
-        totalProfit: totalProfit
+        date: new Date().toISOString()
     };
 
-    tradeData.push(record);
-    localStorage.setItem('tradeData', JSON.stringify(tradeData));
+    // Get existing trades or initialize empty array
+    let existingTrades = JSON.parse(localStorage.getItem('tradeData') || '[]');
+    
+    // Add new trade
+    existingTrades.push(tradeData);
+    
+    // Save back to localStorage
+    localStorage.setItem('tradeData', JSON.stringify(existingTrades));
+    
+    // Update displays
     updateTradeHistory();
+    updatePriceAnalysis();
     this.reset();
     document.getElementById('cargoItemsContainer').innerHTML = '';
 });
 
-// Update trade history table
+// Delete trade record
+function deleteTrade(index) {
+    if (confirm('Are you sure you want to delete this trade?')) {
+        let trades = JSON.parse(localStorage.getItem('tradeData') || '[]');
+        trades.splice(index, 1);
+        localStorage.setItem('tradeData', JSON.stringify(trades));
+        updateTradeHistory();
+        updatePriceAnalysis();
+    }
+}
+
+// Update trade history table with null checks
 function updateTradeHistory() {
-    const tbody = document.getElementById('tradeHistory');
-    tbody.innerHTML = '';
+    try {
+        const trades = JSON.parse(localStorage.getItem('tradeData') || '[]');
+        const tbody = document.getElementById('tradeHistoryBody'); 
+        if (!tbody) {
+            console.error('Trade history table body not found');
+            return;
+        }
 
-    tradeData.forEach(record => {
-        const cargoDetails = record.cargoItems.map(item => 
-            `${item.amount} SCU ${item.cargoType}`
-        ).join('<br>');
+        tbody.innerHTML = '';
 
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td>${record.ship}</td>
-            <td>${cargoDetails}</td>
-            <td>${record.buyLocation} → ${record.sellLocation}</td>
-            <td>${record.totalProfit.toLocaleString()} aUEC</td>
-            <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteRecord(${record.id})">Delete</button>
-            </td>
-        `;
+        trades.forEach((trade, index) => {
+            if (!trade || !trade.cargoItems) return;
+            
+            const row = document.createElement('tr');
+            const profit = trade.cargoItems.reduce((sum, item) => {
+                if (!item) return sum;
+                const sellPrice = parseFloat(item.sellPrice) || 0;
+                const buyPrice = parseFloat(item.buyPrice) || 0;
+                const amount = parseFloat(item.amount) || 0;
+                return sum + calculateProfit(buyPrice, sellPrice, amount);
+            }, 0);
+
+            row.innerHTML = `
+                <td>${trade.ship || 'N/A'}</td>
+                <td>${trade.cargoItems.map(item => `${item.cargoType || 'Unknown'} (${item.amount || 0} SCU)`).join(', ')}</td>
+                <td>${trade.buyLocation || 'N/A'} → ${trade.sellLocation || 'N/A'}</td>
+                <td>${profit.toLocaleString()} aUEC</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="deleteTrade(${index})">Delete</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error updating trade history:', error);
+    }
+}
+
+// Migration function to add dates to existing records
+function migrateTradeData() {
+    try {
+        const trades = JSON.parse(localStorage.getItem('tradeData') || '[]');
+        let needsMigration = false;
+
+        // Check if any trade lacks a date
+        trades.forEach(trade => {
+            if (!trade.date) {
+                needsMigration = true;
+                trade.date = new Date().toISOString(); // Add current date to old records
+            }
+        });
+
+        // If we made any changes, save back to localStorage
+        if (needsMigration) {
+            localStorage.setItem('tradeData', JSON.stringify(trades));
+            console.log('Trade data migration completed');
+        }
+    } catch (error) {
+        console.error('Error migrating trade data:', error);
+    }
+}
+
+// Update price analysis table and charts
+function updatePriceAnalysis() {
+    try {
+        const trades = JSON.parse(localStorage.getItem('tradeData') || '[]');
+        const cargoFilter = document.getElementById('priceAnalysisCargoFilter').value;
+        const locationFilter = document.getElementById('priceAnalysisLocationFilter').value;
+        const sortBy = document.getElementById('priceAnalysisSortBy').value;
+        const sortDirection = document.getElementById('priceAnalysisSortDirection').value;
+
+        // Create maps to store data
+        const priceMap = new Map();
+        const profitHistory = new Map();
+        const commodityProfits = new Map();
+
+        // Process all trades
+        trades.forEach(trade => {
+            if (!trade || !trade.cargoItems) return;
+            const tradeDate = trade.date ? new Date(trade.date) : new Date();
+            
+            trade.cargoItems.forEach(item => {
+                if (!item) return;
+                const key = `${item.cargoType}|${trade.buyLocation}|${trade.sellLocation}`;
+                const buyPrice = parseFloat(item.buyPrice) || 0;
+                const sellPrice = parseFloat(item.sellPrice) || 0;
+                const amount = parseFloat(item.amount) || 0;
+
+                // Calculate prices per SCU
+                const buyPricePerSCU = calculateSCUPrice(buyPrice, amount);
+                const sellPricePerSCU = calculateSCUPrice(sellPrice, amount);
+                const profitPerSCU = sellPricePerSCU - buyPricePerSCU;
+                
+                // Update price map
+                const existingEntry = priceMap.get(key);
+                if (!existingEntry || tradeDate > new Date(existingEntry.date)) {
+                    priceMap.set(key, {
+                        cargoType: item.cargoType,
+                        buyLocation: trade.buyLocation,
+                        buyPrice: buyPricePerSCU,
+                        sellLocation: trade.sellLocation,
+                        sellPrice: sellPricePerSCU,
+                        profitPerSCU: profitPerSCU,
+                        date: tradeDate.toISOString()
+                    });
+                }
+
+                // Update profit history
+                const monthKey = tradeDate.toISOString().slice(0, 7); // YYYY-MM
+                profitHistory.set(monthKey, (profitHistory.get(monthKey) || 0) + calculateProfit(buyPrice, sellPrice, amount));
+
+                // Update commodity profits
+                commodityProfits.set(item.cargoType, (commodityProfits.get(item.cargoType) || 0) + calculateProfit(buyPrice, sellPrice, amount));
+            });
+        });
+
+        // Update price analysis table
+        const tbody = document.getElementById('priceAnalysisBody');
+        if (tbody) {
+            tbody.innerHTML = '';
+
+            Array.from(priceMap.values())
+                .filter(entry => {
+                    if (cargoFilter && entry.cargoType !== cargoFilter) return false;
+                    if (locationFilter && (entry.buyLocation !== locationFilter && entry.sellLocation !== locationFilter)) return false;
+                    return true;
+                })
+                .sort((a, b) => {
+                    let valueA, valueB;
+                    switch(sortBy) {
+                        case 'profit':
+                            valueA = a.profitPerSCU;
+                            valueB = b.profitPerSCU;
+                            break;
+                        case 'buyPrice':
+                            valueA = a.buyPrice;
+                            valueB = b.buyPrice;
+                            break;
+                        case 'sellPrice':
+                            valueA = a.sellPrice;
+                            valueB = b.sellPrice;
+                            break;
+                        default:
+                            valueA = a.profitPerSCU;
+                            valueB = b.profitPerSCU;
+                    }
+                    return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+                })
+                .forEach(entry => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${entry.cargoType || 'Unknown'}</td>
+                        <td>${entry.buyLocation || 'N/A'}</td>
+                        <td>${Math.round(entry.buyPrice).toLocaleString()} aUEC/SCU</td>
+                        <td>${entry.sellLocation || 'N/A'}</td>
+                        <td>${Math.round(entry.sellPrice).toLocaleString()} aUEC/SCU</td>
+                        <td>${Math.round(entry.profitPerSCU).toLocaleString()} aUEC/SCU</td>
+                        <td>${new Date(entry.date).toLocaleDateString()}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+        }
+
+        // Update charts
+        updateProfitTrendChart(profitHistory);
+        updateTopCommoditiesChart(commodityProfits);
+    } catch (error) {
+        console.error('Error in updatePriceAnalysis:', error);
+    }
+}
+
+// Update profit trend chart
+function updateProfitTrendChart(profitHistory) {
+    const ctx = document.getElementById('profitTrendChart');
+    if (!ctx) {
+        console.error('Profit trend chart canvas not found');
+        return;
+    }
+
+    // Get last 6 months of data
+    const sortedData = Array.from(profitHistory.entries())
+        .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+        .slice(-6); // Only show last 6 months
+
+    const labels = sortedData.map(([month]) => {
+        const [year, monthNum] = month.split('-');
+        return `${monthNum}/${year}`;
+    });
+    const data = sortedData.map(([, profit]) => profit);
+
+    if (window.profitTrendChart instanceof Chart) {
+        window.profitTrendChart.destroy();
+    }
+
+    window.profitTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Monthly Profit (aUEC)',
+                data: data,
+                borderColor: '#4299e1',
+                backgroundColor: 'rgba(66, 153, 225, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: '#e2e8f0',
+                        boxWidth: 20
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(226, 232, 240, 0.1)'
+                    },
+                    ticks: {
+                        color: '#e2e8f0',
+                        callback: value => `${(value / 1000000).toFixed(1)}M`
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(226, 232, 240, 0.1)'
+                    },
+                    ticks: {
+                        color: '#e2e8f0'
+                    }
+                }
+            }
+        }
     });
 }
 
-// Delete record
-function deleteRecord(id) {
-    if (confirm('Are you sure you want to delete this record?')) {
-        tradeData = tradeData.filter(record => record.id !== id);
-        localStorage.setItem('tradeData', JSON.stringify(tradeData));
-        updateTradeHistory();
+// Update top commodities chart
+function updateTopCommoditiesChart(commodityProfits) {
+    const ctx = document.getElementById('topCommoditiesChart');
+    if (!ctx) {
+        console.error('Top commodities chart canvas not found');
+        return;
     }
+
+    // Get top 5 commodities only
+    const topCommodities = Array.from(commodityProfits.entries())
+        .sort(([, profitA], [, profitB]) => profitB - profitA)
+        .slice(0, 5); // Only show top 5
+
+    const labels = topCommodities.map(([commodity]) => commodity);
+    const data = topCommodities.map(([, profit]) => profit);
+
+    if (window.topCommoditiesChart instanceof Chart) {
+        window.topCommoditiesChart.destroy();
+    }
+
+    window.topCommoditiesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Total Profit (aUEC)',
+                data: data,
+                backgroundColor: 'rgba(66, 153, 225, 0.5)',
+                borderColor: '#4299e1',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: '#e2e8f0',
+                        boxWidth: 20
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(226, 232, 240, 0.1)'
+                    },
+                    ticks: {
+                        color: '#e2e8f0',
+                        callback: value => `${(value / 1000000).toFixed(1)}M`
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#e2e8f0'
+                    }
+                }
+            }
+        }
+    });
 }
 
 // Show management modal
@@ -471,10 +801,79 @@ function loadFromJson(input) {
     input.value = '';
 }
 
+// Combine multiple JSON files
+function combineJsonFiles(input) {
+    const files = Array.from(input.files);
+    if (files.length < 2) {
+        alert('Please select at least 2 JSON files to combine');
+        input.value = '';
+        return;
+    }
+
+    let combinedData = {
+        trades: [],
+        ships: [],
+        cargoTypes: [],
+        locations: []
+    };
+
+    let filesProcessed = 0;
+    
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // Validate data structure
+                if (!data.trades || !data.ships || !data.cargoTypes || !data.locations) {
+                    throw new Error(`Invalid data format in file: ${file.name}`);
+                }
+
+                // Combine data, avoiding duplicates
+                combinedData.trades = [...combinedData.trades, ...data.trades];
+                combinedData.ships = [...new Set([...combinedData.ships, ...data.ships])];
+                combinedData.cargoTypes = [...new Set([...combinedData.cargoTypes, ...data.cargoTypes])];
+                combinedData.locations = [...new Set([...combinedData.locations, ...data.locations])];
+
+                filesProcessed++;
+
+                // When all files are processed, save the combined data
+                if (filesProcessed === files.length) {
+                    // Create and download the combined file
+                    const blob = new Blob([JSON.stringify(combinedData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `combined_trade_data_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }
+            } catch (error) {
+                alert('Error processing file: ' + error.message);
+            }
+        };
+        reader.readAsText(file);
+    });
+    
+    // Reset the input
+    input.value = '';
+}
+
+// Update price analysis when filters change
+document.getElementById('priceAnalysisCargoFilter').addEventListener('change', updatePriceAnalysis);
+document.getElementById('priceAnalysisLocationFilter').addEventListener('change', updatePriceAnalysis);
+document.getElementById('priceAnalysisSortBy').addEventListener('change', updatePriceAnalysis);
+document.getElementById('priceAnalysisSortDirection').addEventListener('change', updatePriceAnalysis);
+
 // Initialize the page
 document.addEventListener('DOMContentLoaded', function() {
+    migrateTradeData();
     initializeDropdowns();
     updateTradeHistory();
+    updatePriceAnalysis();
     
     // Add event listeners
     document.getElementById('shipSelect').addEventListener('change', updateCargoSize);
@@ -486,5 +885,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('sellLocationFilter').addEventListener('input', function() {
         filterDropdown(this, 'sellLocation', locations);
+    });
+
+    // Set fixed height for chart containers
+    const chartContainers = document.querySelectorAll('.card-body');
+    chartContainers.forEach(container => {
+        if (container.querySelector('canvas')) {
+            container.style.height = '250px'; // Fixed height
+        }
     });
 });

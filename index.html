@@ -6,6 +6,7 @@
     <title>Star Citizen Trade Tracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --space-primary: #1e2837;
@@ -236,6 +237,10 @@
                     Load Data
                     <input type="file" id="loadJson" accept=".json" style="display: none;" onchange="loadFromJson(this)">
                 </label>
+                <label class="btn btn-warning manage-btn" for="combineJson">
+                    Combine JSONs
+                    <input type="file" id="combineJson" accept=".json" multiple style="display: none;" onchange="combineJsonFiles(this)">
+                </label>
             </div>
             <button class="btn btn-success manage-btn me-2" onclick="exportToSheets()">Export to Sheets</button>
             <button class="btn btn-secondary manage-btn" onclick="showManageModal('ships')">Manage Ships</button>
@@ -303,12 +308,90 @@
                                     <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="tradeHistory"></tbody>
+                            <tbody id="tradeHistoryBody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="card mt-4 mb-4">
+            <div class="card-header">
+                <h3 class="mb-0">Price Analysis</h3>
+            </div>
+            <div class="card-body">
+                <!-- Filters -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <label class="form-label">Cargo Type</label>
+                        <select class="form-select" id="priceAnalysisCargoFilter">
+                            <option value="">All Cargo Types</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Location</label>
+                        <select class="form-select" id="priceAnalysisLocationFilter">
+                            <option value="">All Locations</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Sort By</label>
+                        <select class="form-select" id="priceAnalysisSortBy">
+                            <option value="profit">Profit Margin</option>
+                            <option value="profitPerUnit">Profit per Unit</option>
+                            <option value="buyPrice">Buy Price</option>
+                            <option value="sellPrice">Sell Price</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Direction</label>
+                        <select class="form-select" id="priceAnalysisSortDirection">
+                            <option value="desc">Highest First</option>
+                            <option value="asc">Lowest First</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Price Table -->
+                <div class="table-responsive mt-4">
+                    <table class="table table-dark table-striped">
+                        <thead>
+                            <tr>
+                                <th>Cargo Type</th>
+                                <th>Buy Location</th>
+                                <th>Buy Price</th>
+                                <th>Sell Location</th>
+                                <th>Sell Price</th>
+                                <th>Profit/SCU</th>
+                                <th>Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="priceAnalysisBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Charts -->
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h4>Profit Trends</h4>
+                                <canvas id="profitTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h4>Top Commodities</h4>
+                                <canvas id="topCommoditiesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Management Modal -->
