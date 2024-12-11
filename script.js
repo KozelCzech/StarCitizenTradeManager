@@ -244,17 +244,31 @@ function getCargoItems() {
 document.getElementById('tradeForm').addEventListener('submit', function(event) {
     event.preventDefault();
     
+    // Get all cargo items
     const cargoItems = [];
     document.querySelectorAll('.cargo-item').forEach(item => {
-        cargoItems.push({
-            cargoType: item.querySelector('[name="cargoType"]').value,
-            amount: parseFloat(item.querySelector('[name="amount"]').value) || 0,
-            buyPrice: parseFloat(item.querySelector('[name="buyPrice"]').value) || 0,
-            sellPrice: parseFloat(item.querySelector('[name="sellPrice"]').value) || 0
-        });
+        const cargoType = item.querySelector('select[id^="cargoType-"]').value;
+        const amount = parseFloat(item.querySelector('input[id^="amount-"]').value) || 0;
+        const buyPrice = parseFloat(item.querySelector('input[id^="buyPrice-"]').value) || 0;
+        const sellPrice = parseFloat(item.querySelector('input[id^="sellPrice-"]').value) || 0;
+        
+        if (cargoType && amount > 0) {
+            cargoItems.push({
+                cargoType,
+                amount,
+                buyPrice,
+                sellPrice
+            });
+        }
     });
 
-    const tradeData = {
+    // Validate that at least one cargo item exists
+    if (cargoItems.length === 0) {
+        alert('Please add at least one cargo item with valid data');
+        return;
+    }
+
+    const newTrade = {
         ship: document.getElementById('shipSelect').value,
         buyLocation: document.getElementById('buyLocation').value,
         sellLocation: document.getElementById('sellLocation').value,
@@ -263,19 +277,22 @@ document.getElementById('tradeForm').addEventListener('submit', function(event) 
     };
 
     // Get existing trades or initialize empty array
-    let existingTrades = JSON.parse(localStorage.getItem('tradeData') || '[]');
+    let trades = JSON.parse(localStorage.getItem('tradeData') || '[]');
     
     // Add new trade
-    existingTrades.push(tradeData);
+    trades.push(newTrade);
     
     // Save back to localStorage
-    localStorage.setItem('tradeData', JSON.stringify(existingTrades));
+    localStorage.setItem('tradeData', JSON.stringify(trades));
     
     // Update displays
     updateTradeHistory();
     updatePriceAnalysis();
+
+    // Reset form and cargo items
     this.reset();
     document.getElementById('cargoItemsContainer').innerHTML = '';
+    addCargoItem(); // Add one empty cargo item for next trade
 });
 
 // Delete trade record

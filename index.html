@@ -319,42 +319,41 @@
             <div class="card-header">
                 <h3 class="mb-0">Price Analysis</h3>
             </div>
-            <div class="card-body">
-                <!-- Filters -->
-                <div class="row mb-4">
-                    <div class="col-md-3">
-                        <label class="form-label">Cargo Type</label>
-                        <select class="form-select" id="priceAnalysisCargoFilter">
-                            <option value="">All Cargo Types</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Location</label>
-                        <select class="form-select" id="priceAnalysisLocationFilter">
-                            <option value="">All Locations</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Sort By</label>
-                        <select class="form-select" id="priceAnalysisSortBy">
-                            <option value="profit">Profit Margin</option>
-                            <option value="profitPerUnit">Profit per Unit</option>
-                            <option value="buyPrice">Buy Price</option>
-                            <option value="sellPrice">Sell Price</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Direction</label>
-                        <select class="form-select" id="priceAnalysisSortDirection">
-                            <option value="desc">Highest First</option>
-                            <option value="asc">Lowest First</option>
-                        </select>
+            <div class="card-body p-0">
+                <div class="p-3">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Cargo Type</label>
+                            <select class="form-select" id="priceAnalysisCargoFilter">
+                                <option value="">All Cargo Types</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Location</label>
+                            <select class="form-select" id="priceAnalysisLocationFilter">
+                                <option value="">All Locations</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Sort By</label>
+                            <select class="form-select" id="priceAnalysisSortBy">
+                                <option value="profit">Profit Margin</option>
+                                <option value="profitPerUnit">Profit per Unit</option>
+                                <option value="buyPrice">Buy Price</option>
+                                <option value="sellPrice">Sell Price</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Direction</label>
+                            <select class="form-select" id="priceAnalysisSortDirection">
+                                <option value="desc">Highest First</option>
+                                <option value="asc">Lowest First</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-
-                <!-- Price Table -->
-                <div class="table-responsive mt-4">
-                    <table class="table table-dark table-striped">
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped mb-0">
                         <thead>
                             <tr>
                                 <th>Cargo Type</th>
@@ -368,25 +367,25 @@
                         </thead>
                         <tbody id="priceAnalysisBody"></tbody>
                     </table>
+                    <div class="p-2"></div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Charts -->
-                <div class="row mt-4">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-body">
-                                <h4>Profit Trends</h4>
-                                <canvas id="profitTrendChart"></canvas>
-                            </div>
-                        </div>
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h4>Profit Trends</h4>
+                        <canvas id="profitTrendChart"></canvas>
                     </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-body">
-                                <h4>Top Commodities</h4>
-                                <canvas id="topCommoditiesChart"></canvas>
-                            </div>
-                        </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h4>Top Commodities</h4>
+                        <canvas id="topCommoditiesChart"></canvas>
                     </div>
                 </div>
             </div>
