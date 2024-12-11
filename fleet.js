@@ -1,5 +1,12 @@
 // Fleet data structure
-let fleetData = JSON.parse(localStorage.getItem('fleetData')) || [];
+let fleetData = [];
+let componentDatabase = JSON.parse(localStorage.getItem('componentDatabase')) || {
+    powerPlant: [],
+    shield: [],
+    quantumDrive: [],
+    weapon: [],
+    cooler: []
+};
 
 // Component types configuration
 const componentTypes = {
@@ -7,48 +14,121 @@ const componentTypes = {
         label: 'Power Plant', 
         listId: 'powerPlantList',
         infoLabel: 'Power Output',
-        infoPlaceholder: 'e.g., 2500 kW'
+        infoPlaceholder: 'e.g., 2500 kW',
+        maxSize: 4,
+        hasGrade: true
     },
     shield: { 
         label: 'Shield Generator', 
         listId: 'shieldList',
         infoLabel: 'Shield HP',
-        infoPlaceholder: 'e.g., 7500 HP'
+        infoPlaceholder: 'e.g., 7500 HP',
+        maxSize: 4,
+        hasGrade: true
     },
     quantumDrive: { 
         label: 'Quantum Drive', 
         listId: 'quantumDriveList',
         infoLabel: 'Speed/Consumption',
-        infoPlaceholder: 'e.g., 283,000 km/s, 583 l/Mm'
+        infoPlaceholder: 'e.g., 283,000 km/s, 583 l/Mm',
+        maxSize: 4,
+        hasGrade: true
     },
     weapon: { 
         label: 'Weapon', 
         listId: 'weaponList',
         infoLabel: 'Damage/RoF',
-        infoPlaceholder: 'e.g., 220 dmg, 750 rpm'
+        infoPlaceholder: 'e.g., 220 dmg, 750 rpm',
+        maxSize: 10,
+        hasGrade: false
     },
     cooler: { 
         label: 'Cooler', 
         listId: 'coolerList',
         infoLabel: 'Cooling Rate',
-        infoPlaceholder: 'e.g., 235 kW/s'
+        infoPlaceholder: 'e.g., 235 kW/s',
+        maxSize: 4,
+        hasGrade: true
     }
 };
 
-// Size and grade options
-const sizeOptions = ['S0', 'S1', 'S2', 'S3', 'S4'];
+// Generate size options based on component type
+function getSizeOptions(type) {
+    const maxSize = componentTypes[type].maxSize;
+    return Array.from({length: maxSize + 1}, (_, i) => `S${i}`);
+}
+
 const gradeOptions = ['A', 'B', 'C', 'D'];
 
-// Initialize Bootstrap modal
+// Initialize data and UI
 let shipModal;
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Load saved data
+    const savedFleet = localStorage.getItem('fleetData');
+    if (savedFleet) {
+        try {
+            fleetData = JSON.parse(savedFleet);
+            console.log('Loaded fleet data:', fleetData);
+        } catch (error) {
+            console.error('Error loading fleet data:', error);
+            fleetData = [];
+        }
+    }
+
+    // Initialize Bootstrap modal
     shipModal = new bootstrap.Modal(document.getElementById('shipModal'));
+    
+    // Setup components
+    setupComponentAutocomplete();
+    
+    // Add form submit handler
+    document.getElementById('shipForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        saveShip(event);
+    });
+
+    // Render initial fleet
     renderFleet();
 });
+
+// Setup component name autocomplete
+function setupComponentAutocomplete() {
+    Object.keys(componentTypes).forEach(type => {
+        // Create datalist if it doesn't exist
+        if (!document.getElementById(`${type}List`)) {
+            const datalist = document.createElement('datalist');
+            datalist.id = `${type}List`;
+            document.body.appendChild(datalist);
+        }
+        updateComponentDatalist(type);
+    });
+}
+
+// Update component datalist
+function updateComponentDatalist(type) {
+    const datalist = document.getElementById(`${type}List`);
+    if (!datalist) return;
+    
+    const options = componentDatabase[type]
+        .map(comp => `<option value="${comp.name}" data-size="${comp.size}" data-grade="${comp.grade || ''}" data-info="${comp.info || ''}">`);
+    datalist.innerHTML = options.join('');
+}
+
+// Add component to database
+function addToComponentDatabase(type, component) {
+    const existing = componentDatabase[type].find(c => c.name === component.name);
+    if (!existing) {
+        componentDatabase[type].push(component);
+        localStorage.setItem('componentDatabase', JSON.stringify(componentDatabase));
+        updateComponentDatalist(type);
+    }
+}
 
 // Show modal for adding new ship
 function showAddShipModal() {
     document.getElementById('shipModalTitle').textContent = 'Add New Ship';
+    document.getElementById('shipIndex').value = ''; // Clear index
     document.getElementById('shipForm').reset();
     clearAllComponents();
     shipModal.show();
@@ -58,17 +138,20 @@ function showAddShipModal() {
 function showEditShipModal(index) {
     const ship = fleetData[index];
     document.getElementById('shipModalTitle').textContent = 'Edit Ship';
+    document.getElementById('shipIndex').value = index; // Store index for saving
     
     // Fill form with ship data
-    document.getElementById('shipName').value = ship.name;
-    document.getElementById('shipModel').value = ship.model;
-    document.getElementById('cargoCapacity').value = ship.cargoCapacity;
-    document.getElementById('hydrogenFuel').value = ship.hydrogenFuel;
-    document.getElementById('quantumFuel').value = ship.quantumFuel;
-    document.getElementById('shipNotes').value = ship.notes;
+    document.getElementById('shipName').value = ship.name || '';
+    document.getElementById('shipModel').value = ship.model || '';
+    document.getElementById('cargoCapacity').value = ship.cargoCapacity || '';
+    document.getElementById('hydrogenFuel').value = ship.hydrogenFuel || '';
+    document.getElementById('quantumFuel').value = ship.quantumFuel || '';
+    document.getElementById('shipNotes').value = ship.notes || '';
 
-    // Clear and repopulate components
+    // Clear existing components
     clearAllComponents();
+
+    // Add existing components
     Object.entries(ship.components || {}).forEach(([type, components]) => {
         components.forEach(comp => {
             addComponent(type, comp);
@@ -85,36 +168,89 @@ function createDropdownHTML(options, selectedValue = '') {
     ).join('');
 }
 
+// Component input change handler
+function handleComponentInput(input, type) {
+    const selectedValue = input.value;
+    console.log('Selected value:', selectedValue);
+    
+    const component = componentDatabase[type].find(c => c.name === selectedValue);
+    console.log('Found component in database:', component);
+    
+    if (!component) return;
+    
+    const componentItem = input.closest('.component-item');
+    if (!componentItem) {
+        console.error('Could not find component item container');
+        return;
+    }
+
+    // Get all the fields
+    const sizeSelect = componentItem.querySelector('select:first-of-type');
+    const gradeSelect = componentTypes[type].hasGrade ? 
+        componentItem.querySelector('select:nth-of-type(2)') : null;
+    const infoInput = componentItem.querySelector('input[placeholder*="e.g."]');
+
+    console.log('Found fields:', { sizeSelect, gradeSelect, infoInput });
+    console.log('Component values:', component);
+
+    // Update the fields
+    if (sizeSelect && component.size) {
+        sizeSelect.value = component.size;
+        console.log('Set size to:', component.size);
+    }
+
+    if (gradeSelect && component.grade) {
+        gradeSelect.value = component.grade;
+        console.log('Set grade to:', component.grade);
+    }
+
+    if (infoInput && component.info) {
+        infoInput.value = component.info;
+        console.log('Set info to:', component.info);
+    }
+}
+
 // Add component input fields
 function addComponent(type, component = null) {
     const listId = componentTypes[type].listId;
     const componentList = document.getElementById(listId);
     const componentDiv = document.createElement('div');
-    componentDiv.className = 'component-item mb-2 p-2 border border-secondary rounded';
+    componentDiv.className = 'component-item mb-2 p-2 border border-secondary rounded bg-dark text-light';
     
-    const sizeOptionsHTML = createDropdownHTML(sizeOptions, component?.size);
-    const gradeOptionsHTML = createDropdownHTML(gradeOptions, component?.grade);
+    const sizeOptionsHTML = createDropdownHTML(getSizeOptions(type), component?.size);
+    const gradeOptionsHTML = componentTypes[type].hasGrade ? 
+        `<div class="col-md-2">
+            <select class="form-select form-select-sm bg-dark text-light">
+                ${createDropdownHTML(gradeOptions, component?.grade)}
+            </select>
+        </div>` : '';
     
     componentDiv.innerHTML = `
         <div class="row align-items-center g-2">
             <div class="col-md-3">
-                <input type="text" class="form-control form-control-sm" 
-                    placeholder="Name" value="${component?.name || ''}" required>
+                <input type="text" 
+                    class="form-control form-control-sm bg-dark text-light component-name" 
+                    placeholder="Name" 
+                    value="${component?.name || ''}" 
+                    list="${type}List" 
+                    autocomplete="off"
+                    required>
             </div>
             <div class="col-md-2">
-                <select class="form-select form-select-sm">
+                <select class="form-select form-select-sm bg-dark text-light">
                     ${sizeOptionsHTML}
                 </select>
             </div>
-            <div class="col-md-2">
-                <select class="form-select form-select-sm">
-                    ${gradeOptionsHTML}
-                </select>
-            </div>
-            <div class="col-md-4">
-                <input type="text" class="form-control form-control-sm" 
+            ${gradeOptionsHTML}
+            <div class="col-md-${componentTypes[type].hasGrade ? '3' : '5'}">
+                <input type="text" class="form-control form-control-sm bg-dark text-light" 
                     placeholder="${componentTypes[type].infoPlaceholder}"
                     value="${component?.info || ''}">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-outline-info w-100" onclick="togglePlannedUpgrade(this)">
+                    Plan Upgrade
+                </button>
             </div>
             <div class="col-md-1">
                 <button type="button" class="btn btn-danger btn-sm" 
@@ -123,21 +259,85 @@ function addComponent(type, component = null) {
                 </button>
             </div>
         </div>
+        <div class="planned-upgrade mt-2" style="display: none;">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm bg-dark text-light" 
+                        placeholder="Planned Component" list="${type}List">
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm bg-dark text-light" 
+                        placeholder="Location">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" class="form-control form-control-sm bg-dark text-light" 
+                        placeholder="Price in aUEC">
+                </div>
+            </div>
+        </div>
     `;
     componentList.appendChild(componentDiv);
+
+    // Add event listeners after adding to DOM
+    const nameInput = componentDiv.querySelector('.component-name');
+    
+    // Handle both input and change events
+    ['input', 'change'].forEach(eventType => {
+        nameInput.addEventListener(eventType, (e) => {
+            console.log(`${eventType} event triggered`);
+            handleComponentInput(e.target, type);
+        });
+    });
+
+    // If we're loading an existing component with planned upgrade, show it
+    if (component?.planned) {
+        const plannedSection = componentDiv.querySelector('.planned-upgrade');
+        const plannedInputs = plannedSection.querySelectorAll('input');
+        plannedInputs[0].value = component.planned.name;
+        plannedInputs[1].value = component.planned.location;
+        plannedInputs[2].value = component.planned.price;
+        plannedSection.style.display = 'block';
+        componentDiv.querySelector('.btn-outline-info').textContent = 'Hide Plan';
+    }
+}
+
+// Toggle planned upgrade section
+function togglePlannedUpgrade(button) {
+    const plannedSection = button.closest('.component-item').querySelector('.planned-upgrade');
+    const isHidden = plannedSection.style.display === 'none';
+    plannedSection.style.display = isHidden ? 'block' : 'none';
+    button.textContent = isHidden ? 'Hide Plan' : 'Plan Upgrade';
+    button.classList.toggle('btn-outline-info', !isHidden);
+    button.classList.toggle('btn-info', isHidden);
 }
 
 // Save ship data
-function saveShip() {
+function saveShip(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    console.log('Saving ship data...');
+    
     const shipData = {
         name: document.getElementById('shipName').value,
         model: document.getElementById('shipModel').value,
-        cargoCapacity: parseInt(document.getElementById('cargoCapacity').value),
-        hydrogenFuel: parseInt(document.getElementById('hydrogenFuel').value),
-        quantumFuel: parseInt(document.getElementById('quantumFuel').value),
+        cargoCapacity: document.getElementById('cargoCapacity').value ? 
+            parseInt(document.getElementById('cargoCapacity').value) : 0,
+        hydrogenFuel: document.getElementById('hydrogenFuel').value ? 
+            parseInt(document.getElementById('hydrogenFuel').value) : 0,
+        quantumFuel: document.getElementById('quantumFuel').value ? 
+            parseInt(document.getElementById('quantumFuel').value) : 0,
         notes: document.getElementById('shipNotes').value,
         components: {}
     };
+
+    if (!shipData.name || !shipData.model) {
+        alert('Ship name and model are required!');
+        return;
+    }
+
+    console.log('Collected ship data:', shipData);
 
     // Collect components by type
     Object.entries(componentTypes).forEach(([type, config]) => {
@@ -145,13 +345,38 @@ function saveShip() {
         document.querySelectorAll(`#${config.listId} .component-item`).forEach(item => {
             const inputs = item.querySelectorAll('input');
             const selects = item.querySelectorAll('select');
-            if (inputs[0].value) { // Only add if name is provided
-                components.push({
+            const plannedSection = item.querySelector('.planned-upgrade');
+            const plannedInputs = plannedSection.querySelectorAll('input');
+
+            if (inputs[0].value) {
+                const component = {
                     name: inputs[0].value,
                     size: selects[0].value,
-                    grade: selects[1].value,
                     info: inputs[1].value
-                });
+                };
+
+                if (config.hasGrade) {
+                    component.grade = selects[1].value;
+                }
+
+                if (plannedInputs[0].value) {
+                    component.planned = {
+                        name: plannedInputs[0].value,
+                        location: plannedInputs[1].value,
+                        price: plannedInputs[2].value
+                    };
+                }
+
+                components.push(component);
+                
+                // Add to component database without planned upgrade info
+                const dbComponent = {
+                    name: component.name,
+                    size: component.size,
+                    grade: component.grade,
+                    info: component.info
+                };
+                addToComponentDatabase(type, dbComponent);
             }
         });
         if (components.length > 0) {
@@ -159,21 +384,32 @@ function saveShip() {
         }
     });
 
-    // Add or update ship
-    const editMode = document.getElementById('shipModalTitle').textContent === 'Edit Ship';
-    if (editMode) {
-        const index = fleetData.findIndex(ship => ship.name === shipData.name);
-        if (index !== -1) {
-            fleetData[index] = shipData;
-        }
-    } else {
-        fleetData.push(shipData);
-    }
+    try {
+        // Get the index if we're editing
+        const index = document.getElementById('shipIndex').value;
+        const isEditing = index !== '';
 
-    // Save and update
-    localStorage.setItem('fleetData', JSON.stringify(fleetData));
-    renderFleet();
-    shipModal.hide();
+        console.log('Saving mode:', isEditing ? 'Edit' : 'Add', 'Index:', index);
+
+        if (isEditing) {
+            // Update existing ship
+            fleetData[parseInt(index)] = shipData;
+        } else {
+            // Add new ship
+            fleetData.push(shipData);
+        }
+
+        // Save to localStorage
+        localStorage.setItem('fleetData', JSON.stringify(fleetData));
+        console.log('Saved fleet data:', fleetData);
+
+        // Update display and close modal
+        renderFleet();
+        shipModal.hide();
+    } catch (error) {
+        console.error('Error saving ship:', error);
+        alert('There was an error saving the ship. Please try again.');
+    }
 }
 
 // Render components in ship card
@@ -182,16 +418,27 @@ function renderComponents(components) {
     
     return `
         <div class="mb-3">
-            <h6>Components</h6>
+            <h6 class="text-light">Components</h6>
             ${Object.entries(components).map(([type, items]) => `
                 <div class="mb-2">
                     <small class="text-muted">${componentTypes[type].label}</small>
-                    <ul class="component-list">
+                    <ul class="component-list list-unstyled">
                         ${items.map(item => `
                             <li class="component-item">
-                                <div class="d-flex justify-content-between">
-                                    <span>${item.name} (${item.size}, Grade ${item.grade})</span>
-                                    ${item.info ? `<small class="text-muted">${item.info}</small>` : ''}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-light">
+                                        ${item.name} (${item.size}${item.grade ? `, Grade ${item.grade}` : ''})
+                                        ${item.info ? `<small class="text-muted ms-2">${item.info}</small>` : ''}
+                                    </span>
+                                    ${item.planned ? `
+                                        <span class="text-info">
+                                            <small>
+                                                Planned: ${item.planned.name} 
+                                                @ ${item.planned.location}
+                                                (${item.planned.price} aUEC)
+                                            </small>
+                                        </span>
+                                    ` : ''}
                                 </div>
                             </li>
                         `).join('')}
@@ -209,76 +456,69 @@ function clearAllComponents() {
     });
 }
 
-// Delete ship
-function deleteShip(index) {
-    if (confirm('Are you sure you want to delete this ship?')) {
-        fleetData.splice(index, 1);
-        localStorage.setItem('fleetData', JSON.stringify(fleetData));
-        renderFleet();
-    }
-}
-
-// Render fleet cards
+// Render fleet display
 function renderFleet() {
-    const container = document.getElementById('fleetContainer');
-    container.innerHTML = '';
+    const fleetContainer = document.getElementById('fleetContainer');
+    fleetContainer.innerHTML = ''; // Clear existing content
+
+    console.log('Rendering fleet:', fleetData);
+
+    if (!fleetData || fleetData.length === 0) {
+        fleetContainer.innerHTML = '<div class="text-center text-light p-4">No ships in your fleet yet. Click "Add Ship" to get started!</div>';
+        return;
+    }
 
     fleetData.forEach((ship, index) => {
-        const card = document.createElement('div');
-        card.className = 'col-md-6 col-lg-4 mb-4';
-        card.innerHTML = `
-            <div class="card ship-card">
+        const shipCard = document.createElement('div');
+        shipCard.className = 'col-lg-6 mb-4';
+        
+        const cardContent = `
+            <div class="card bg-dark text-light border-secondary h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">${ship.name}</h4>
-                    <div class="btn-group">
-                        <button class="btn btn-sm btn-primary" onclick="showEditShipModal(${index})">
-                            <i class="fas fa-edit"></i>
+                    <h5 class="mb-0">${ship.name}</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-info me-2" onclick="showEditShipModal(${index})">
+                            <i class="fas fa-edit"></i> Edit
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteShip(${index})">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteShip(${index})">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <p><strong>Model:</strong> ${ship.model}</p>
                     <div class="row mb-3">
-                        <div class="col-4">
-                            <small class="d-block text-muted">Cargo</small>
-                            ${ship.cargoCapacity} SCU
+                        <div class="col-sm-6">
+                            <strong>Model:</strong> ${ship.model}
                         </div>
-                        <div class="col-4">
-                            <small class="d-block text-muted">H₂ Fuel</small>
-                            ${ship.hydrogenFuel || 'N/A'} L
-                        </div>
-                        <div class="col-4">
-                            <small class="d-block text-muted">Q Fuel</small>
-                            ${ship.quantumFuel || 'N/A'} L
+                        <div class="col-sm-6">
+                            <strong>Cargo:</strong> ${ship.cargoCapacity} SCU
                         </div>
                     </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-6">
+                            <strong>Hydrogen:</strong> ${ship.hydrogenFuel} SCU
+                        </div>
+                        <div class="col-sm-6">
+                            <strong>Quantum:</strong> ${ship.quantumFuel} SCU
+                        </div>
+                    </div>
+                    ${ship.notes ? `<div class="mb-3"><strong>Notes:</strong> ${ship.notes}</div>` : ''}
                     ${renderComponents(ship.components)}
-                    ${ship.notes ? `
-                        <div class="mt-3">
-                            <h6>Notes</h6>
-                            <p class="mb-0">${ship.notes}</p>
-                        </div>
-                    ` : ''}
                 </div>
             </div>
         `;
-        container.appendChild(card);
+        
+        shipCard.innerHTML = cardContent;
+        fleetContainer.appendChild(shipCard);
     });
+}
 
-    // Show empty state if no ships
-    if (fleetData.length === 0) {
-        container.innerHTML = `
-            <div class="col-12 text-center">
-                <div class="card">
-                    <div class="card-body">
-                        <h4>No Ships in Fleet</h4>
-                        <p>Click the "Add New Ship" button to get started!</p>
-                    </div>
-                </div>
-            </div>
-        `;
+// Delete ship
+function deleteShip(index) {
+    if (confirm('Are you sure you want to delete this ship?')) {
+        console.log('Deleting ship at index:', index);
+        fleetData.splice(index, 1);
+        localStorage.setItem('fleetData', JSON.stringify(fleetData));
+        renderFleet();
     }
 }

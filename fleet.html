@@ -143,89 +143,93 @@
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <form id="shipForm">
-                            <div class="row mb-3">
+                        <form id="shipForm" onsubmit="saveShip(event);">
+                            <input type="hidden" id="shipIndex" value="">
+                            <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label">Ship Name</label>
-                                    <input type="text" class="form-control" id="shipName" required>
+                                    <label class="form-label text-light">Ship Name</label>
+                                    <input type="text" class="form-control bg-dark text-light" id="shipName" required>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Model</label>
-                                    <input type="text" class="form-control" id="shipModel" required>
-                                </div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">Cargo Capacity (SCU)</label>
-                                    <input type="number" class="form-control" id="cargoCapacity" required>
+                                    <label class="form-label text-light">Model</label>
+                                    <input type="text" class="form-control bg-dark text-light" id="shipModel" required>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label">Hydrogen Fuel (L)</label>
-                                    <input type="number" class="form-control" id="hydrogenFuel">
+                                    <label class="form-label text-light">Cargo Capacity (SCU)</label>
+                                    <input type="number" class="form-control bg-dark text-light" id="cargoCapacity" required>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label">Quantum Fuel (L)</label>
-                                    <input type="number" class="form-control" id="quantumFuel">
+                                    <label class="form-label text-light">Hydrogen Fuel (SCU)</label>
+                                    <input type="number" class="form-control bg-dark text-light" id="hydrogenFuel">
                                 </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Components</label>
-                                <div id="componentList" class="component-sections">
+                                <div class="col-md-4">
+                                    <label class="form-label text-light">Quantum Fuel (SCU)</label>
+                                    <input type="number" class="form-control bg-dark text-light" id="quantumFuel">
+                                </div>
+                                <div class="col-12">
+                                    <hr class="border-secondary">
+                                    <h5 class="text-light mb-3">Components</h5>
                                     <!-- Power Plants -->
-                                    <div class="component-section mb-3">
-                                        <h6 class="mb-2">Power Plants</h6>
-                                        <div id="powerPlantList" class="component-items"></div>
-                                        <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="addComponent('powerPlant')">
-                                            <i class="fas fa-plus me-1"></i>Add Power Plant
-                                        </button>
+                                    <div class="mb-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="form-label text-light mb-0">Power Plants</label>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                onclick="addComponent('powerPlant')">Add Power Plant</button>
+                                        </div>
+                                        <div id="powerPlantList"></div>
                                     </div>
 
                                     <!-- Shield Generators -->
-                                    <div class="component-section mb-3">
-                                        <h6 class="mb-2">Shield Generators</h6>
-                                        <div id="shieldList" class="component-items"></div>
-                                        <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="addComponent('shield')">
-                                            <i class="fas fa-plus me-1"></i>Add Shield Generator
-                                        </button>
+                                    <div class="mb-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="form-label text-light mb-0">Shield Generators</label>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                onclick="addComponent('shield')">Add Shield</button>
+                                        </div>
+                                        <div id="shieldList"></div>
                                     </div>
 
                                     <!-- Quantum Drive -->
-                                    <div class="component-section mb-3">
-                                        <h6 class="mb-2">Quantum Drive</h6>
-                                        <div id="quantumDriveList" class="component-items"></div>
-                                        <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="addComponent('quantumDrive')">
-                                            <i class="fas fa-plus me-1"></i>Add Quantum Drive
-                                        </button>
+                                    <div class="mb-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="form-label text-light mb-0">Quantum Drives</label>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                onclick="addComponent('quantumDrive')">Add Quantum Drive</button>
+                                        </div>
+                                        <div id="quantumDriveList"></div>
                                     </div>
 
                                     <!-- Weapons -->
-                                    <div class="component-section mb-3">
-                                        <h6 class="mb-2">Weapons</h6>
-                                        <div id="weaponList" class="component-items"></div>
-                                        <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="addComponent('weapon')">
-                                            <i class="fas fa-plus me-1"></i>Add Weapon
-                                        </button>
+                                    <div class="mb-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="form-label text-light mb-0">Weapons</label>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                onclick="addComponent('weapon')">Add Weapon</button>
+                                        </div>
+                                        <div id="weaponList"></div>
                                     </div>
 
                                     <!-- Coolers -->
-                                    <div class="component-section mb-3">
-                                        <h6 class="mb-2">Coolers</h6>
-                                        <div id="coolerList" class="component-items"></div>
-                                        <button type="button" class="btn btn-secondary btn-sm mt-2" onclick="addComponent('cooler')">
-                                            <i class="fas fa-plus me-1"></i>Add Cooler
-                                        </button>
+                                    <div class="mb-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="form-label text-light mb-0">Coolers</label>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                onclick="addComponent('cooler')">Add Cooler</button>
+                                        </div>
+                                        <div id="coolerList"></div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Notes</label>
-                                <textarea class="form-control" id="shipNotes" rows="3"></textarea>
+
+                                <div class="col-12">
+                                    <label class="form-label text-light">Notes</label>
+                                    <textarea class="form-control bg-dark text-light" id="shipNotes" rows="3"></textarea>
+                                </div>
                             </div>
                         </form>
                     </div>
-                    <div class="modal-footer border-secondary">
+                    <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" onclick="saveShip()">Save Ship</button>
+                        <button type="submit" class="btn btn-primary" form="shipForm">Save Ship</button>
                     </div>
                 </div>
             </div>
