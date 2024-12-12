@@ -470,7 +470,7 @@ function renderFleet() {
 
     fleetData.forEach((ship, index) => {
         const shipCard = document.createElement('div');
-        shipCard.className = 'col-lg-6 mb-4';
+        shipCard.className = 'col-md-4 mb-4'; // Adjusted to col-md-4 for narrower cards
         
         const cardContent = `
             <div class="card bg-dark text-light border-secondary h-100">
@@ -496,10 +496,10 @@ function renderFleet() {
                     </div>
                     <div class="row mb-3">
                         <div class="col-sm-6">
-                            <strong>Hydrogen:</strong> ${ship.hydrogenFuel} SCU
+                            <strong>Hydrogen:</strong> ${ship.hydrogenFuel} µSCU
                         </div>
                         <div class="col-sm-6">
-                            <strong>Quantum:</strong> ${ship.quantumFuel} SCU
+                            <strong>Quantum:</strong> ${ship.quantumFuel} µSCU
                         </div>
                     </div>
                     ${ship.notes ? `<div class="mb-3"><strong>Notes:</strong> ${ship.notes}</div>` : ''}
@@ -521,4 +521,125 @@ function deleteShip(index) {
         localStorage.setItem('fleetData', JSON.stringify(fleetData));
         renderFleet();
     }
+}
+
+// JSON Management Functions
+function saveToJson() {
+    const data = {
+        fleetData: fleetData,
+        componentDatabase: componentDatabase
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = `fleet-data-${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function loadFromJson() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                if (data.fleetData && Array.isArray(data.fleetData)) {
+                    fleetData = data.fleetData;
+                    localStorage.setItem('fleetData', JSON.stringify(fleetData));
+                }
+                
+                if (data.componentDatabase) {
+                    componentDatabase = data.componentDatabase;
+                    localStorage.setItem('componentDatabase', JSON.stringify(componentDatabase));
+                    setupComponentAutocomplete();
+                }
+                
+                renderFleet();
+                alert('Data loaded successfully!');
+            } catch (error) {
+                console.error('Error loading data:', error);
+                alert('Error loading data. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+    };
+    
+    input.click();
+}
+
+function combineJson() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                
+                // Combine fleet data
+                if (importedData.fleetData && Array.isArray(importedData.fleetData)) {
+                    // Create a map of existing ships by name for quick lookup
+                    const existingShips = new Map(fleetData.map(ship => [ship.name, ship]));
+                    
+                    importedData.fleetData.forEach(importedShip => {
+                        if (!existingShips.has(importedShip.name)) {
+                            fleetData.push(importedShip);
+                        }
+                    });
+                    
+                    localStorage.setItem('fleetData', JSON.stringify(fleetData));
+                }
+                
+                // Combine component database
+                if (importedData.componentDatabase) {
+                    Object.keys(componentDatabase).forEach(type => {
+                        if (importedData.componentDatabase[type]) {
+                            // Create a map of existing components by name
+                            const existingComponents = new Map(
+                                componentDatabase[type].map(comp => [comp.name, comp])
+                            );
+                            
+                            // Add new components
+                            importedData.componentDatabase[type].forEach(importedComp => {
+                                if (!existingComponents.has(importedComp.name)) {
+                                    componentDatabase[type].push(importedComp);
+                                }
+                            });
+                        }
+                    });
+                    
+                    localStorage.setItem('componentDatabase', JSON.stringify(componentDatabase));
+                    setupComponentAutocomplete();
+                }
+                
+                renderFleet();
+                alert('Data combined successfully!');
+            } catch (error) {
+                console.error('Error combining data:', error);
+                alert('Error combining data. Please check the file format.');
+            }
+        };
+        reader.readAsText(file);
+    };
+    
+    input.click();
 }

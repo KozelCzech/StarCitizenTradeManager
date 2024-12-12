@@ -114,19 +114,23 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container-fluid py-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Fleet Management</h1>
-            <a href="trade.html" class="btn btn-outline-primary">
-                <i class="fas fa-chart-line me-2"></i>Trade Tracker
-            </a>
-        </div>
-
-        <!-- Add New Ship Button -->
-        <div class="text-end mb-4">
-            <button class="btn btn-primary" onclick="showAddShipModal()">
-                <i class="fas fa-plus me-2"></i>Add New Ship
-            </button>
+            <h2 class="text-light">Fleet Management</h2>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="showAddShipModal()">
+                    <i class="fas fa-plus"></i> Add Ship
+                </button>
+                <button class="btn btn-info" onclick="saveToJson()">
+                    <i class="fas fa-download"></i> Save JSON
+                </button>
+                <button class="btn btn-info" onclick="loadFromJson()">
+                    <i class="fas fa-upload"></i> Load JSON
+                </button>
+                <button class="btn btn-info" onclick="combineJson()">
+                    <i class="fas fa-object-group"></i> Combine JSON
+                </button>
+            </div>
         </div>
 
         <!-- Fleet Overview -->
@@ -159,11 +163,11 @@
                                     <input type="number" class="form-control bg-dark text-light" id="cargoCapacity" required>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label text-light">Hydrogen Fuel (SCU)</label>
+                                    <label class="form-label text-light">Hydrogen Fuel (µSCU)</label>
                                     <input type="number" class="form-control bg-dark text-light" id="hydrogenFuel">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label text-light">Quantum Fuel (SCU)</label>
+                                    <label class="form-label text-light">Quantum Fuel (µSCU)</label>
                                     <input type="number" class="form-control bg-dark text-light" id="quantumFuel">
                                 </div>
                                 <div class="col-12">
